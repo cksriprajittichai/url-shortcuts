@@ -1,26 +1,63 @@
 var shortcuts = [];
 var shortcutsMap = {};
 
-browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  shortcuts = request.shortcuts
+const onShortcutsLoaded = (res) => {
+  console.log('>>> onShortcutsLoaded');
+  console.log(res);
+  if (!res.hasOwnProperty('shortcuts')) {
+    // Nothing in storage, so table is empty and nothing to do
+    return;
+  }
+
+  const existingShortcuts = res['shortcuts'];
+  onShortcutsChanged(existingShortcuts);
+  console.log('<<< onShortcutsLoaded');
+};
+
+const onShortcutsChanged = (updatedShortcuts) => {
+  console.log('>>> onShortcutsChanged');
+  console.log(shortcuts);
+  shortcuts = updatedShortcuts
 
   shortcutsMap = {};
   shortcuts.map(([shortcut, url]) => shortcutsMap[shortcut] = url);
+  console.log(shortcuts);
+  console.log('<<< onShortcutsChanged');
+};
+
+
+
+browser.runtime.onMessage.addListener((req, sender, sendRes) => {
+  switch (req.type) {
+    case 'get-shortcuts':
+      sendRes({
+        'shortcuts': shortcuts,
+        'shortcuts-map': shortcutsMap
+      });
+      break;
+    case 'shortcuts-changed':
+      onShortcutsChanged(req.shortcuts);
+      break;
+    default:
+      break;
+  }
 });
 
 // This event is fired with the user accepts the input in the omnibox
-chrome.omnibox.onInputEntered.addListener((text) => {
-  console.log(`> Processing omnibox entry. text: ${text.trim()}`)
+chrome.omnibox.onInputEntered.addListener((shortcut) => {
+  shortcut = shortcut.trim();
+
+  console.log(`>>> Processing omnibox entry`);
+  console.log(`shortcut: ${shortcut.trim()}`);
   console.log(shortcutsMap);
 
-  text = text.trim();
-
-  if (shortcutsMap.hasOwnProperty(text)) {
-    chrome.tabs.update({url: shortcutsMap[text]})
+  if (shortcutsMap.hasOwnProperty(shortcut)) {
+    chrome.tabs.update({url: shortcutsMap[shortcut]});
   }
-
-
-  // // Encode user input for special characters , / ? : @ & = + $ #
-  // var newURL = 'https://www.google.com/search?q=' + encodeURIComponent(text);
-  // console.log(newURL);
+  console.log('<<< Processing omnibox entry');
 });
+
+const loadingStorage = browser.storage.sync.get('shortcuts');
+loadingStorage
+  .then(onShortcutsLoaded)
+  .catch((e) => console.log(e));

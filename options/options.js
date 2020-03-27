@@ -1,27 +1,9 @@
 var shortcuts = [];
 
-const onShortcutsChanged = () => browser.runtime.sendMessage({'shortcuts': shortcuts});
-
-const updateUi = (res) => {
-  if (!res.hasOwnProperty('shortcuts')) {
-    // Nothing in storage, so table is empty and nothing to do
-    return;
-  }
-
-  const existingShortcuts = res['shortcuts'];
-  existingShortcuts.map((entry) => {
-    const [shortcut, url] = entry;
-    addTableEntry(shortcut, url);
-  });
-};
-
-const onStoredShortcutsLoaded = (res) => {
-  updateUi(res);
-  onShortcutsChanged();
-};
-
 const storeSettings = () => {
-  shortcuts = [];  // Completely rebuild shortcuts struct
+  // Completely rebuild shortcuts struct
+  shortcuts = [];
+
   const shortcutTable = document.getElementById('shortcut-table');
   for (let r = 1, row; row = shortcutTable.rows[r]; r++) {
     const shortcut = row.cells[0].innerHTML.replace('<br>', '').trim();
@@ -52,12 +34,24 @@ const addTableEntry = (shortcut = '', url = '') => {
   urlCell.setAttribute('contenteditable', true);
 };
 
-const loadingStorage = browser.storage.sync.get('shortcuts');
-loadingStorage.then(onStoredShortcutsLoaded, (e) => console.log(e));
+
+
+// Init UI and shortcuts struct
+browser.runtime.sendMessage({'type': 'get-shortcuts'})
+  .then((res) => {
+    shortcuts = res.shortcuts;
+    shortcuts.map(([shortcut, url]) => addTableEntry(shortcut, url));
+  })
+  .catch((err) => console.log(err));
 
 const addEntryBtn = document.getElementById('add-entry');
 addEntryBtn.addEventListener('click', () => addTableEntry());
 
 const saveBtn = document.getElementById('save');
-saveBtn.addEventListener('click', storeSettings);
-saveBtn.addEventListener('click', onShortcutsChanged);
+saveBtn.addEventListener('click', (e) => {
+  storeSettings();
+  browser.runtime.sendMessage({
+    'type': 'shortcuts-changed',
+    'shortcuts': shortcuts
+  });
+});
