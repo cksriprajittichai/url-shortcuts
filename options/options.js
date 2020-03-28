@@ -6,8 +6,8 @@ const storeSettings = () => {
 
   const shortcutTable = document.getElementById('shortcut-table');
   for (let r = 1, row; row = shortcutTable.rows[r]; r++) {
-    const shortcut = row.cells[0].innerHTML.replace('<br>', '').trim();
-    const url = row.cells[1].innerHTML.replace('<br>', '').trim();
+    const shortcut = row.cells[0].firstChild.value.trim();
+    const url = row.cells[1].firstChild.value.trim();
 
     // URL must be non-empty
     if (url !== '') {
@@ -25,13 +25,17 @@ const addTableEntry = (shortcut = '', url = '') => {
 
   const row = shortcutTable.insertRow(-1);
 
+  const shortcutInput = document.createElement('input');
+  shortcutInput.type = 'text';
+  shortcutInput.value = shortcut;
   const shortcutCell = row.insertCell(0);
-  shortcutCell.appendChild(document.createTextNode(shortcut));
-  shortcutCell.setAttribute('contenteditable', true);  // Must do after appending text node for some reason
+  shortcutCell.appendChild(shortcutInput);
 
+  const urlInput = document.createElement('input');
+  urlInput.type = 'url';
+  urlInput.value = url;
   const urlCell = row.insertCell(1);
-  urlCell.appendChild(document.createTextNode(url));
-  urlCell.setAttribute('contenteditable', true);
+  urlCell.appendChild(urlInput);
 };
 
 
@@ -50,6 +54,8 @@ addEntryBtn.addEventListener('click', () => addTableEntry());
 const saveBtn = document.getElementById('save');
 saveBtn.addEventListener('click', (e) => {
   storeSettings();
+
+  // Notify background script that shortcuts have changed
   browser.runtime.sendMessage({
     'type': 'shortcuts-changed',
     'shortcuts': shortcuts
